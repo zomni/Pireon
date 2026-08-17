@@ -1,0 +1,83 @@
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5001:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - DOTNET_USE_POLLING_FILE_WATCHER=1
+      - DOTNET_WATCH_SUPPRESS_LAUNCH_BROWSER=1
+      - DOTNET_WATCH_RESTART_ON_RUDE_EDIT=1
+      - DOTNET_WATCH_HOT_RELOAD=0
+      - AllowedOrigins=${ALLOWED_ORIGINS:-http://localhost:8081,http://localhost:3000}
+      - FrontendAppUrl=${FRONTEND_APP_URL:-http://localhost:8081}
+      - FrontendDataPath=/app/frontend-data
+      - ExcelImportRoot=/app/import
+      - SQLITE_DATA_ROOT=/app/data
+      - AuthSettings__AdminUsername=${ADMIN_EMAIL:-}
+      - AuthSettings__AdminPassword=${ADMIN_PASSWORD:-}
+      - AuthSettings__UseLdapAuthentication=${AUTH_USE_LDAP:-false}
+      - AuthSettings__AllowLocalBreakGlass=${ALLOW_LOCAL_BREAK_GLASS:-true}
+      - AuthSettings__BreakGlassUsernames=${BREAK_GLASS_USERNAMES:-ADMIN}
+      - AuthSettings__AutoProvisionLdapUsers=${AUTO_PROVISION_LDAP_USERS:-false}
+      - AuthSettings__DefaultLdapRole=${DEFAULT_LDAP_ROLE:-viewer}
+      - MfaSettings__Issuer=${MFA_ISSUER:-Pireon}
+      - MfaSettings__RequireForAdmins=${MFA_REQUIRE_FOR_ADMINS:-true}
+      - MfaSettings__RequireForNonAdmins=${MFA_REQUIRE_FOR_NON_ADMINS:-false}
+      - MfaSettings__PendingMinutes=${MFA_PENDING_MINUTES:-10}
+      - MfaSettings__PeriodSeconds=${MFA_PERIOD_SECONDS:-30}
+      - MfaSettings__Digits=${MFA_DIGITS:-6}
+      - MfaSettings__WindowSteps=${MFA_WINDOW_STEPS:-6}
+      - PasswordPolicy__MinLength=${PASSWORD_POLICY_MIN_LENGTH:-10}
+      - PasswordPolicy__MaxLength=${PASSWORD_POLICY_MAX_LENGTH:-64}
+      - PasswordPolicy__DisallowCommonPasswords=${PASSWORD_POLICY_DISALLOW_COMMON_PASSWORDS:-true}
+      - BackupSettings__Enabled=${BACKUP_ENABLED:-true}
+      - BackupSettings__Path=${BACKUP_PATH:-backups}
+      - BackupSettings__Cron=${BACKUP_CRON:-}
+      - BackupSettings__IntervalHours=${BACKUP_INTERVAL_HOURS:-24}
+      - BackupSettings__RetentionDays=${BACKUP_RETENTION_DAYS:-30}
+      - NetworkTelemetrySettings__Enabled=${NETWORK_TELEMETRY_ENABLED:-false}
+      - NetworkTelemetrySettings__AutoScanEnabled=${NETWORK_TELEMETRY_AUTOSCAN:-false}
+      - NetworkTelemetrySettings__AutoScanTimeZone=${NETWORK_TELEMETRY_TIME_ZONE:-UTC}
+      - NetworkTelemetrySettings__DisplayTimeZone=${NETWORK_TELEMETRY_DISPLAY_TIME_ZONE:-UTC}
+      - NetworkTelemetrySettings__DisplayLocale=${NETWORK_TELEMETRY_DISPLAY_LOCALE:-es-CL}
+      - NetworkTelemetrySettings__IngestApiKey=${NETWORK_TELEMETRY_INGEST_API_KEY:-CHANGE_ME}
+      - DeliveryForm__Institution=${DELIVERY_FORM_INSTITUTION:-}
+      - DeliveryForm__TemplatePath=${DELIVERY_FORM_TEMPLATE_PATH:-}
+      - DeliveryForm__SofficePath=${DELIVERY_FORM_SOFFICE_PATH:-soffice}
+      - LDAP_HOST=${LDAP_HOST:-ldap.example.com}
+      - LDAP_PORT=${LDAP_PORT:-389}
+      - LDAP_DOMAIN=${LDAP_DOMAIN:-example}
+      - LDAP_BASE_DN=${LDAP_BASE_DN:-DC=example,DC=com}
+      - LDAP_UPN_SUFFIXES=${LDAP_UPN_SUFFIXES:-example.com}
+      - LDAP_USE_SSL=${LDAP_USE_SSL:-false}
+      - LDAP_TRUST_SERVER_CERTIFICATE=${LDAP_TRUST_SERVER_CERTIFICATE:-false}
+      - LDAPTLS_REQCERT=${LDAPTLS_REQCERT:-never}
+    volumes:
+      - ./backend:/app
+      - api_bin:/app/Pireon.API/bin
+      - api_obj:/app/Pireon.API/obj
+      - ./backend/data:/app/data
+      - nuget_cache:/root/.nuget/packages
+      - ${FRONTEND_DATA_HOST_PATH:-./frontend/src/data}:/app/frontend-data
+      - ${IMPORT_HOST_PATH:-./backend/import}:/app/import:ro
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        API_BASE_URL: ${API_BASE_URL:-http://localhost:5001}
+    ports:
+      - "8081:8080"
+    volumes:
+      - ${FRONTEND_DATA_HOST_PATH:-./frontend/src/data}:/usr/share/nginx/html/data
+    restart: unless-stopped
+
+volumes:
+  api_bin:
+  api_obj:
+  nuget_cache:

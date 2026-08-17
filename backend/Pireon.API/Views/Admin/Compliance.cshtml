@@ -1,0 +1,737 @@
+@{
+    ViewData["Title"] = "Cumplimiento";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    dynamic compliance = ViewData.Model;
+    var overallStatus = (string)(compliance.OverallStatus ?? "Advertencia");
+    var statusClass = overallStatus switch
+    {
+        "OK" => "bg-success",
+        "Critico" => "bg-danger",
+        _ => "bg-warning text-dark"
+    };
+    var overallLabel = (string)(compliance.OverallStatusLabel ?? overallStatus);
+}
+
+<style>
+    .compliance-hero {
+        border: 0;
+        border-radius: 22px;
+        color: #fff;
+        background:
+            radial-gradient(circle at top right, rgba(59, 130, 246, 0.22), transparent 32%),
+            linear-gradient(135deg, #0f172a 0%, #1d4ed8 55%, #38bdf8 100%);
+    }
+    .compliance-card {
+        border: 0;
+        border-radius: 18px;
+        box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+        transition: transform .28s ease, box-shadow .28s ease;
+    }
+    .compliance-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14);
+    }
+    .compliance-card .card-header {
+        border-bottom: 1px solid rgba(226, 232, 240, 0.7);
+        padding: 1rem 1.25rem;
+        position: relative;
+    }
+    .compliance-card .card-header::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 4px;
+        border-radius: 0 4px 4px 0;
+        background: linear-gradient(180deg, #2d79a0, #38bdf8);
+    }
+    .compliance-card .dashboard-kpi-icon {
+        width: 52px;
+        height: 52px;
+        display: grid;
+        place-items: center;
+        border-radius: 16px;
+        transition: transform .3s ease, box-shadow .3s ease;
+    }
+    .compliance-card:hover .dashboard-kpi-icon {
+        transform: scale(1.08);
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+    }
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: .45rem;
+        padding: .45rem .8rem;
+        border-radius: 999px;
+        font-weight: 700;
+    }
+    .status-ok { background: rgba(34, 197, 94, .12); color: #15803d; }
+    .status-warning { background: rgba(245, 158, 11, .14); color: #b45309; }
+    .status-critical { background: rgba(239, 68, 68, .12); color: #b91c1c; }
+
+    .transition-hover {
+        transition: transform .28s ease, box-shadow .28s ease;
+    }
+    .transition-hover:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 30px rgba(0,0,0,0.2);
+    }
+    .fade-in-up {
+        animation: fadeUp .5s ease both;
+    }
+    .fade-in-up-d1 { animation-delay: .05s; }
+    .fade-in-up-d2 { animation-delay: .1s; }
+    .fade-in-up-d3 { animation-delay: .15s; }
+    .fade-in-up-d4 { animation-delay: .2s; }
+    @@keyframes fadeUp {
+        from { opacity: 0; transform: translateY(18px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-1">Panel de cumplimiento</h2>
+        <div class="text-muted">Resumen SGSI: backups, accesos, MFA, HTTPS, Swagger y LDAPS.</div>
+    </div>
+    <span class="status-pill @(statusClass == "bg-success" ? "status-ok" : statusClass == "bg-danger" ? "status-critical" : "status-warning")">
+        <i class="bi bi-circle-fill small"></i>@overallLabel
+    </span>
+</div>
+
+<div class="card compliance-hero shadow-sm mb-4">
+    <div class="card-body p-4 p-lg-5">
+        <div class="row g-4 align-items-center">
+            <div class="col-lg-7">
+                <div class="text-uppercase small fw-semibold text-white-50 mb-2">Estado global</div>
+                <h1 class="fw-bold mb-3">Semaforo de cumplimiento institucional</h1>
+                <p class="text-white-50 mb-4">
+                    El panel consolida los controles clave de la plataforma y te muestra si el entorno esta listo para uso interno.
+                </p>
+                <div class="d-flex gap-2 flex-wrap">
+                    <span class="status-pill status-ok" title="OK - Todo funciona correctamente"><i class="bi bi-check-circle"></i></span>
+                    <span class="status-pill status-warning" title="Advertencia - Hay elementos por revisar"><i class="bi bi-exclamation-circle"></i></span>
+                    <span class="status-pill status-critical" title="Critico - Se requiere atencion inmediata"><i class="bi bi-x-circle"></i></span>
+                </div>
+            </div>
+            <div class="col-lg-5">
+                <div class="bg-white bg-opacity-10 rounded-4 p-4">
+                    <div class="row g-3">
+                        @{
+                            var summaryIndex = 0;
+                        }
+                        @foreach (var card in compliance.SummaryCards)
+                        {
+                            summaryIndex++;
+                            var animClass = summaryIndex <= 4 ? $"fade-in-up-d{summaryIndex}" : "fade-in-up-d4";
+                            <div class="col-6 fade-in-up @animClass">
+                                <div class="rounded-4 bg-white bg-opacity-10 p-3 h-100 transition-hover">
+                                    <i class="@card.IconClass fs-3 d-block mb-1"></i>
+                                    <div class="small text-white-50 fw-semibold" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.03em;">@card.Title</div>
+                                    <div class="fs-3 fw-bold text-white">@card.Value</div>
+                                    <div class="small text-white-50">@card.Detail</div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (compliance.CurrentUserCanManageUsers)
+{
+    <div class="mb-4">
+        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#adminManagementModal">
+            <i class="bi bi-person-gear me-1"></i>Administrar usuarios y permisos
+        </button>
+    </div>
+}
+
+<div class="row g-4 mb-4">
+    @{
+        var checkIndex = 0;
+    }
+    @foreach (var check in compliance.Checks)
+    {
+        var checkClass = check.Status switch
+        {
+            "ok" => "text-bg-success",
+            "critical" => "text-bg-danger",
+            _ => "text-bg-warning"
+        };
+        var animDelay = (checkIndex % 4) + 1;
+        checkIndex++;
+        <div class="col-md-6 col-xl-4 fade-in-up fade-in-up-d@(animDelay)">
+            <div class="card compliance-card h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-start gap-3">
+                        <div class="dashboard-kpi-icon bg-primary bg-opacity-10">
+                            <i class="@check.IconClass text-primary fs-4"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                                <div class="fw-semibold">@check.Title</div>
+                                <span class="badge @checkClass">@check.Status</span>
+                            </div>
+                            <div class="text-muted small">@check.Detail</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-4 fade-in-up fade-in-up-d1">
+        <div class="card compliance-card h-100">
+            <div class="card-header bg-white fw-semibold">Ultimos respaldos</div>
+            <div class="card-body">
+                @if (compliance.RecentBackups.Count == 0)
+                {
+                    <div class="text-muted small">Todavia no hay respaldos en el historial.</div>
+                }
+                else
+                {
+                    <div class="d-grid gap-3">
+                        @foreach (var item in compliance.RecentBackups)
+                        {
+                            <div class="border rounded-3 p-3">
+                                <div class="d-flex justify-content-between gap-2">
+                                    <div class="fw-semibold small">@item.Title</div>
+                                    <span class="badge @item.BadgeClass">@item.Badge</span>
+                                </div>
+                                <div class="small text-muted mt-1">@item.Detail</div>
+                                <div class="small text-muted">@item.TimeLabel</div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4 fade-in-up fade-in-up-d2">
+        <div class="card compliance-card h-100">
+            <div class="card-header bg-white fw-semibold">Ultimos accesos</div>
+            <div class="card-body">
+                @if (compliance.RecentAccesses.Count == 0)
+                {
+                    <div class="text-muted small">Todavia no hay accesos recientes auditados.</div>
+                }
+                else
+                {
+                    <div class="d-grid gap-3">
+                        @foreach (var item in compliance.RecentAccesses)
+                        {
+                            <div class="border rounded-3 p-3">
+                                <div class="d-flex justify-content-between gap-2">
+                                    <div class="fw-semibold small">@item.Title</div>
+                                    <span class="badge @item.BadgeClass">@item.Badge</span>
+                                </div>
+                                <div class="small text-muted mt-1">@item.Detail</div>
+                                <div class="small text-muted">@item.TimeLabel</div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4 fade-in-up fade-in-up-d3">
+        <div class="card compliance-card h-100">
+            <div class="card-header bg-white fw-semibold">Eventos criticos</div>
+            <div class="card-body">
+                @if (compliance.CriticalEvents.Count == 0)
+                {
+                    <div class="text-muted small">No hay eventos criticos recientes.</div>
+                }
+                else
+                {
+                    <div class="d-grid gap-3">
+                        @foreach (var item in compliance.CriticalEvents)
+                        {
+                            <div class="border rounded-3 p-3">
+                                <div class="d-flex justify-content-between gap-2">
+                                    <div class="fw-semibold small">@item.Title</div>
+                                    <span class="badge @item.BadgeClass">@item.Badge</span>
+                                </div>
+                                <div class="small text-muted mt-1">@item.Detail</div>
+                                <div class="small text-muted">@item.TimeLabel</div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mt-1">
+    <div class="col-lg-6 fade-in-up fade-in-up-d1">
+        <div class="card compliance-card h-100">
+            <div class="card-header bg-white fw-semibold">Resumen de salud</div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between border-bottom pb-2 mb-2"><span class="text-muted">Base de datos</span><strong>@(compliance.DatabaseConnected ? "OK" : "Critico")</strong></div>
+                <div class="d-flex justify-content-between border-bottom pb-2 mb-2"><span class="text-muted">HTTPS</span><strong>@(compliance.HttpsConfigured ? "Configurado" : "Advertencia")</strong></div>
+                <div class="d-flex justify-content-between border-bottom pb-2 mb-2"><span class="text-muted">Swagger</span><strong>@(compliance.SwaggerRestricted ? "Restringido" : "Advertencia")</strong></div>
+                <div class="d-flex justify-content-between border-bottom pb-2 mb-2"><span class="text-muted">MFA Admin</span><strong>@(compliance.MfaCompliant ? "OK" : "Critico")</strong></div>
+                <div class="d-flex justify-content-between border-bottom pb-2 mb-2"><span class="text-muted">Backup</span><strong>@(compliance.BackupEnabled ? (compliance.BackupHealthy ? "OK" : "Advertencia") : "Deshabilitado")</strong></div>
+                <div class="d-flex justify-content-between"><span class="text-muted">LDAPS</span><strong>@(compliance.LdapsConfigured ? "OK" : "Advertencia")</strong></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6 fade-in-up fade-in-up-d2">
+        <div class="card compliance-card h-100">
+            <div class="card-header bg-white fw-semibold">Datos de sistema</div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between border-bottom pb-2 mb-2"><span class="text-muted">Usuarios activos</span><strong>@compliance.ActiveUsers</strong></div>
+                <div class="d-flex justify-content-between border-bottom pb-2 mb-2"><span class="text-muted">Administradores</span><strong>@compliance.AdminUsers</strong></div>
+                <div class="d-flex justify-content-between border-bottom pb-2 mb-2"><span class="text-muted">Fallos login 7 dias</span><strong>@compliance.FailedLoginsLast7Days</strong></div>
+                <div class="d-flex justify-content-between border-bottom pb-2 mb-2"><span class="text-muted">Criticos 7 dias</span><strong>@compliance.CriticalEventsLast7Days</strong></div>
+                <div class="d-flex justify-content-between border-bottom pb-2 mb-2"><span class="text-muted">BDD</span><strong>@compliance.DatabaseFileName</strong></div>
+                <div class="d-flex justify-content-between"><span class="text-muted">Ultima modificacion</span><strong>@(compliance.DatabaseLastWriteUtc?.ToLocalTime().ToString("dd/MM/yyyy HH:mm") ?? "Sin datos")</strong></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mt-1">
+    <div class="col-12 fade-in-up fade-in-up-d1">
+        <div class="card compliance-card h-100">
+            <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center gap-2">
+                <span>Integridad tecnica</span>
+                <span id="integrity-status-pill" class="status-pill status-warning"><i class="bi bi-hourglass-split"></i>Cargando</span>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <div class="border rounded-3 p-3 h-100">
+                            <div class="text-muted small">Estado general</div>
+                            <div id="integrity-status" class="fw-bold">Cargando...</div>
+                            <div id="integrity-updated-at" class="text-muted small mt-1"></div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border rounded-3 p-3 h-100">
+                            <div class="text-muted small">Equipos</div>
+                            <div id="integrity-equipment-count" class="fs-4 fw-bold">-</div>
+                            <div class="text-muted small">Inventario total detectado</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border rounded-3 p-3 h-100">
+                            <div class="text-muted small">Admins activos</div>
+                            <div id="integrity-admin-count" class="fs-4 fw-bold">-</div>
+                            <div id="integrity-mfa-text" class="text-muted small mt-1"></div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="border rounded-3 p-3 h-100">
+                            <div class="text-muted small">Backup / PDF</div>
+                            <div id="integrity-backup-text" class="fw-semibold">-</div>
+                            <div id="integrity-pdf-text" class="text-muted small mt-1"></div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="border rounded-3 p-3">
+                            <div class="text-muted small mb-2">Tablas criticas</div>
+                            <div id="integrity-tables" class="d-flex flex-wrap gap-2"></div>
+                            <div id="integrity-missing" class="small text-muted mt-2"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="adminManagementModal" tabindex="-1" aria-labelledby="adminManagementModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="adminManagementModalLabel"><i class="bi bi-person-gear me-2"></i>Administrar usuarios y permisos</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="adminUsersLoading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <div class="text-muted mt-2">Cargando usuarios...</div>
+                </div>
+                <div id="adminUsersContent" style="display:none">
+                    <div class="table-responsive">
+                        <table class="table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Usuario</th>
+                                    <th>Rol</th>
+                                    <th>Puede gestionar usuarios</th>
+                                    <th>MFA</th>
+                                    <th>Estado</th>
+                                    <th>Accion</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminUsersTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="adminUsersError" class="alert alert-danger" style="display:none"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="confirmRoleModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar cambio de permisos</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body" id="confirmRoleBody"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="confirmRoleBtn">Guardar cambios</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+window.addEventListener("DOMContentLoaded", () => {
+    const statusPill = document.getElementById("integrity-status-pill");
+    const statusText = document.getElementById("integrity-status");
+    const updatedAt = document.getElementById("integrity-updated-at");
+    const equipmentCount = document.getElementById("integrity-equipment-count");
+    const adminCount = document.getElementById("integrity-admin-count");
+    const mfaText = document.getElementById("integrity-mfa-text");
+    const backupText = document.getElementById("integrity-backup-text");
+    const pdfText = document.getElementById("integrity-pdf-text");
+    const tables = document.getElementById("integrity-tables");
+    const missing = document.getElementById("integrity-missing");
+
+    const setPill = (status) => {
+        if (!statusPill) return;
+        const normalized = (status || "").toLowerCase();
+        const map = {
+            "ok": ["status-ok", "bi-check-circle", "OK"],
+            "critical": ["status-critical", "bi-x-circle", "Crítico"],
+            "advertencia": ["status-warning", "bi-exclamation-circle", "Advertencia"]
+        };
+        const selected = map[normalized] || map["advertencia"];
+        statusPill.className = `status-pill ${selected[0]}`;
+        statusPill.innerHTML = `<i class="bi ${selected[1]}"></i>${selected[2]}`;
+    };
+
+    fetch("/api/health/integrity", { credentials: "same-origin", cache: "no-store" })
+        .then(async (response) => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            return response.json();
+        })
+        .then((data) => {
+            setPill(data.status);
+            if (statusText) {
+                statusText.textContent = data.status || "Advertencia";
+            }
+            if (updatedAt) {
+                updatedAt.textContent = data.generatedAtUtc ? `Actualizado: ${new Date(data.generatedAtUtc).toLocaleString()}` : "";
+            }
+            if (equipmentCount) {
+                equipmentCount.textContent = data.equipmentCount ?? "-";
+            }
+            if (adminCount) {
+                adminCount.textContent = data.activeAdmins ?? "-";
+            }
+            if (mfaText) {
+                mfaText.textContent = data.mfaCompliant ? "MFA admin OK" : `MFA pendiente en ${Math.max(0, (data.activeAdmins || 0) - (data.adminUsersWithMfa || 0))} admin(s)`;
+            }
+            if (backupText) {
+                backupText.textContent = data.backupHealthy ? "Backup reciente OK" : "Backup requiere revision";
+            }
+            if (pdfText) {
+                const maxMb = data.pdfMaxBytes ? (data.pdfMaxBytes / 1024 / 1024).toFixed(0) : "-";
+                pdfText.textContent = `PDF maximo permitido: ${maxMb} MB`;
+            }
+            if (tables) {
+                const required = Array.isArray(data.requiredTables) ? data.requiredTables : [];
+                tables.innerHTML = required.map((table) => `<span class="badge text-bg-light border">${table}</span>`).join("");
+            }
+            if (missing) {
+                const missingTables = Array.isArray(data.missingTables) ? data.missingTables : [];
+                missing.textContent = missingTables.length > 0
+                    ? `Faltan: ${missingTables.join(", ")}`
+                    : "Todas las tablas criticas estan presentes.";
+            }
+        })
+        .catch((error) => {
+            setPill("critical");
+            if (statusText) {
+                statusText.textContent = "No se pudo cargar la integridad";
+            }
+            if (updatedAt) {
+                updatedAt.textContent = error?.message || "";
+            }
+            if (missing) {
+                missing.textContent = "La consulta de integridad fallo.";
+            }
+        });
+});
+
+const adminModal = document.getElementById("adminManagementModal");
+if (adminModal) {
+    const loading = document.getElementById("adminUsersLoading");
+    const content = document.getElementById("adminUsersContent");
+    const errorDiv = document.getElementById("adminUsersError");
+    const tbody = document.getElementById("adminUsersTableBody");
+
+    const toggleCanManageVisibility = (roleSelect, canManageTd) => {
+        const isAdmin = roleSelect?.value === "admin";
+        const chk = canManageTd?.querySelector(".can-manage-switch");
+        if (chk) {
+            chk.disabled = !isAdmin;
+            chk.closest(".form-check")?.classList.toggle("text-muted", !isAdmin);
+            chk.closest(".form-check")?.classList.toggle("opacity-50", !isAdmin);
+            if (!isAdmin) {
+                chk.checked = false;
+                chk.setAttribute("data-original-value", "false");
+            }
+        }
+    };
+
+    const updateMfaBadge = (td, state) => {
+        const map = {
+            enabled: ['bg-success', 'bi-shield-check', 'MFA activo con clave'],
+            pending: ['bg-warning text-dark', 'bi-shield-exclamation', 'Pendiente de enrolar nueva clave'],
+            disabled: ['bg-secondary', 'bi-shield-slash', 'MFA desactivado']
+        };
+        const [bg, icon, title] = map[state] || map.disabled;
+        td.innerHTML = `<span class="badge ${bg} mfa-toggle" role="button" title="${title}"><i class="bi ${icon}"></i></span>`;
+    };
+
+    const confirmMfaAction = (userId, username, action, actionLabel, td) => {
+        if (!confirm(`¿Esta seguro de ${actionLabel} MFA para ${username}?`)) return;
+
+        const badge = td.querySelector(".mfa-toggle");
+        badge.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>';
+        badge.style.pointerEvents = "none";
+
+        fetch(`/api/admin/users/${userId}/mfa`, {
+            method: "PUT",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action })
+        })
+            .then((res) => {
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return res.json();
+            })
+            .then((data) => {
+                updateMfaBadge(td, data.mfaState);
+            })
+            .catch((err) => {
+                alert("Error: " + err.message);
+                updateMfaBadge(td, state);
+            });
+    };
+
+    adminModal.addEventListener("show.bs.modal", () => {
+        loading.style.display = "";
+        content.style.display = "none";
+        errorDiv.style.display = "none";
+
+        fetch("/api/admin/users", { credentials: "same-origin", cache: "no-store" })
+            .then((res) => {
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return res.json();
+            })
+            .then((users) => {
+                loading.style.display = "none";
+                content.style.display = "";
+                    tbody.innerHTML = users.map((user) => {
+                    const roleOptions = ["viewer", "editor", "auditor", "admin"].map((r) =>
+                        `<option value="${r}"${user.role === r ? " selected" : ""}>${r}</option>`
+                    ).join("");
+
+                    const mfaState = user.mfaState || (user.mfaEnabled ? "enabled" : "disabled");
+                    const mfaMap = { enabled: ['bg-success', 'bi-shield-check', 'MFA activo con clave'], pending: ['bg-warning text-dark', 'bi-shield-exclamation', 'Pendiente de enrolar nueva clave'], disabled: ['bg-secondary', 'bi-shield-slash', 'MFA desactivado'] };
+                    const [mfaBg, mfaIcon, mfaTitle] = mfaMap[mfaState] || mfaMap.disabled;
+                    const mfaHtml = `<span class="badge ${mfaBg} mfa-toggle" role="button" title="${mfaTitle}"><i class="bi ${mfaIcon}"></i></span>`;
+                    const statusBadge = user.isActive
+                        ? '<span class="badge bg-success">Activo</span>'
+                        : '<span class="badge bg-danger">Inactivo</span>';
+
+                    return `<tr>
+                        <td><span class="fw-semibold">${user.username}</span></td>
+                        <td>
+                            <select class="form-select form-select-sm role-select" data-user-id="${user.id}" data-original-role="${user.role}">
+                                ${roleOptions}
+                            </select>
+                        </td>
+                        <td class="can-manage-td">
+                            <div class="form-check form-switch ${user.role !== "admin" ? "text-muted opacity-50" : ""}">
+                                <input class="form-check-input can-manage-switch" type="checkbox" role="switch" data-user-id="${user.id}" data-original-value="${user.canManageUsers}" ${user.canManageUsers ? "checked" : ""} ${user.role !== "admin" ? "disabled" : ""}>
+                            </div>
+                        </td>
+                        <td class="mfa-td">${mfaHtml}</td>
+                        <td>${statusBadge}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary save-user-btn" data-user-id="${user.id}" data-username="${user.username}" disabled>
+                                <i class="bi bi-floppy"></i> Guardar
+                            </button>
+                        </td>
+                    </tr>`;
+                }).join("");
+
+                tbody.querySelectorAll(".role-select").forEach((select) => {
+                    select.addEventListener("change", () => {
+                        const userId = select.getAttribute("data-user-id");
+                        const canManageTd = tbody.querySelector(`.can-manage-td[data-user-id="${userId}"]`) || tbody.querySelector(`tr .can-manage-td`);
+                        // find the correct td by traversing
+                        const tr = select.closest("tr");
+                        const cmTd = tr?.querySelector(".can-manage-td");
+                        toggleCanManageVisibility(select, cmTd);
+
+                        const btn = tbody.querySelector(`.save-user-btn[data-user-id="${userId}"]`);
+                        if (btn) btn.disabled = false;
+                    });
+                });
+
+                tbody.querySelectorAll(".can-manage-switch").forEach((el) => {
+                    el.addEventListener("change", () => {
+                        const userId = el.getAttribute("data-user-id");
+                        const btn = tbody.querySelector(`.save-user-btn[data-user-id="${userId}"]`);
+                        if (btn) btn.disabled = false;
+                    });
+                });
+
+                tbody.addEventListener("click", (ev) => {
+                    const badge = ev.target.closest(".mfa-toggle");
+                    if (!badge) return;
+
+                    const tr = badge.closest("tr");
+                    const mfaTd = tr?.querySelector(".mfa-td");
+                    const username = tr?.querySelector("td:first-child")?.textContent?.trim() || "";
+                    const userId = tr?.querySelector(".save-user-btn")?.getAttribute("data-user-id");
+                    if (!userId || !mfaTd) return;
+
+                    const isGreen = badge.classList.contains("bg-success");
+                    const isOrange = badge.classList.contains("bg-warning");
+
+                    if (isGreen) {
+                        const action = prompt(
+                            `MFA de ${username} esta activo con clave enrolada.\n\n` +
+                            `Escriba "desactivar" para desactivar MFA.\n` +
+                            `Escriba "reenrolar" para desvincular la clave y solicitar una nueva.`,
+                            ""
+                        );
+                        if (action === "desactivar") {
+                            confirmMfaAction(userId, username, "disable", "desactivar", mfaTd);
+                        } else if (action === "reenrolar") {
+                            confirmMfaAction(userId, username, "reenroll", "re-enrolar", mfaTd);
+                        }
+                    } else if (isOrange) {
+                        const action2 = prompt(
+                            `MFA de ${username} esta pendiente de enrolar clave.\n\n` +
+                            `Escriba "desactivar" para desactivar MFA.\n` +
+                            `Escriba "activar" para activar MFA (conserva clave pendiente).`,
+                            ""
+                        );
+                        if (action2 === "desactivar") {
+                            confirmMfaAction(userId, username, "disable", "desactivar", mfaTd);
+                        } else if (action2 === "activar") {
+                            confirmMfaAction(userId, username, "enable", "activar", mfaTd);
+                        }
+                    } else {
+                        if (confirm(`¿Activar MFA para ${username}? Se le solicitara configurar MFA en su proximo inicio de sesion.`)) {
+                            confirmMfaAction(userId, username, "enable", "activar", mfaTd);
+                        }
+                    }
+                });
+
+                tbody.querySelectorAll(".save-user-btn").forEach((btn) => {
+                    btn.addEventListener("click", () => {
+                        const userId = btn.getAttribute("data-user-id");
+                        const username = btn.getAttribute("data-username");
+                        const tr = btn.closest("tr");
+                        const roleSelect = tr?.querySelector(".role-select");
+                        const canManageSwitch = tr?.querySelector(".can-manage-switch");
+                        const newRole = roleSelect?.value || "";
+                        const newCanManage = canManageSwitch?.checked || false;
+                        const origRole = roleSelect?.getAttribute("data-original-role") || "";
+                        const origCanManage = canManageSwitch?.getAttribute("data-original-value") === "true";
+
+                        if (newRole === origRole && newCanManage === origCanManage) {
+                            btn.disabled = true;
+                            return;
+                        }
+
+                        const confirmBody = document.getElementById("confirmRoleBody");
+                        confirmBody.innerHTML = `
+                            <p><strong>Usuario:</strong> ${username}</p>
+                            <p><strong>Rol:</strong> ${origRole} <i class="bi bi-arrow-right mx-2"></i> ${newRole}</p>
+                            <p><strong>Gestion de usuarios:</strong> ${origCanManage ? "Si" : "No"} <i class="bi bi-arrow-right mx-2"></i> ${newCanManage ? "Si" : "No"}</p>
+                        `;
+
+                        const confirmBtn = document.getElementById("confirmRoleBtn");
+                        const newConfirmBtn = confirmBtn.cloneNode(true);
+                        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+                        const modal = new bootstrap.Modal(document.getElementById("confirmRoleModal"));
+                        modal.show();
+
+                        newConfirmBtn.addEventListener("click", () => {
+                            newConfirmBtn.disabled = true;
+                            newConfirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Guardando...';
+
+                            fetch(`/api/admin/users/${userId}`, {
+                                method: "PUT",
+                                credentials: "same-origin",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ role: newRole, canManageUsers: newCanManage })
+                            })
+                                .then((res) => {
+                                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                                    return res.json();
+                                })
+                                .then(() => {
+                                    modal.hide();
+                                    btn.disabled = true;
+                                    roleSelect?.setAttribute("data-original-role", newRole);
+                                    if (canManageSwitch) canManageSwitch.setAttribute("data-original-value", newCanManage ? "true" : "false");
+                                    if (newRole !== "admin" && canManageSwitch) {
+                                        canManageSwitch.checked = false;
+                                        canManageSwitch.setAttribute("data-original-value", "false");
+                                    }
+                                })
+                                .catch((err) => {
+                                    alert("Error al guardar: " + err.message);
+                                })
+                                .finally(() => {
+                                    newConfirmBtn.disabled = false;
+                                    newConfirmBtn.innerHTML = "Guardar cambios";
+                                });
+                        });
+                    });
+                });
+            })
+            .catch((err) => {
+                loading.style.display = "none";
+                errorDiv.style.display = "";
+                errorDiv.textContent = "Error al cargar usuarios: " + err.message;
+            });
+    });
+}
+</script>
+}

@@ -1,0 +1,52 @@
+# .env con credenciales — NUNCA subir al repo
+.env
+.env.local
+
+# Build outputs
+**/bin/
+**/obj/
+out/
+dist/
+
+# User secrets
+**/appsettings.Development.json
+
+# VS / Rider / IDE
+.vs/
+.idea/
+*.user
+.vscode/
+
+# Node
+node_modules/
+npm-debug.log
+.DS_Store
+.vercel/
+coverage/
+
+# SQLite locales residuales del backend
+backend/Pireon.API/*.db*
+
+# Datos vivos del proyecto (no versionar; paquete separado)
+backend/data/**
+!backend/data/.gitkeep
+!backend/data/README.md
+backend/data/backups/**
+backend/data/inventory-forms/**
+backend/data/data-protection-keys/**
+
+# Paquetes/exportaciones y runtime locales
+backend/runtime/**
+
+# Respaldos legacy del backend
+backend/Pireon.API/backups/**
+
+# Temporales de trabajo locales
+.tmp/**
+
+# Configuracion local del collector
+tools/*/appsettings.local.json
+
+# Contenido de datos de frontend (opcional, nunca versionar)
+frontend/src/data/*.json
+frontend/src/data/interiors/

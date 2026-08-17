@@ -1,0 +1,137 @@
+/**********************************************************************************************************************/
+/********************************************** Floor Buttons *********************************************************/
+/**********************************************************************************************************************/
+
+/* Setting buttons in the forefront */
+#map>div>div>button {
+    position: relative;
+    z-index: 1000;
+}
+
+#buttons-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: flex-end;
+    justify-content: flex-start;
+}
+
+#floorButtons-container {
+    display: flex;
+
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+/* Floor buttons style */
+.floorButton {
+    border: 2px solid var(--pi-primary);
+    border-radius: 50%;
+    height: 33px;
+    width: 35px;
+    color: rgb(100, 100, 100);
+    text-align: center;
+    text-decoration: none;
+    display: block;
+    font-size: 14px;
+    padding: 4px 9px;
+    margin: 1px 4px;
+    cursor: pointer;
+    transition-duration: 0.4s;
+}
+
+.floorButton:hover {
+    background-color: var(--pi-primary);
+    color: white;
+}
+
+/* .floorButton:focus{
+    background-color: var(--pi-primary);
+    color: white;
+} */
+
+.selectedFloorButton {
+    background-color: var(--pi-primary);
+    color: white;
+}
+
+#bLoc.locationTrackingActive {
+    border-color: var(--pi-primary-bright);
+    background-color: var(--pi-primary-bright);
+    color: white;
+    box-shadow: 0 0 0 5px rgba(var(--pi-primary-bright-rgb), 0.2);
+}
+
+#bLoc.locationTrackingError {
+    border-color: var(--pi-danger-strong);
+    color: var(--pi-danger-strong);
+}
+
+.user-location-marker-wrapper {
+    border: 0;
+    background: transparent;
+}
+
+.user-location-marker {
+    position: relative;
+    display: block;
+    width: 16px;
+    height: 16px;
+    margin: 4px;
+    box-sizing: border-box;
+    border: 3px solid white;
+    border-radius: 50%;
+    background: var(--pi-primary-bright);
+    box-shadow: 0 2px 8px rgba(var(--pi-ink-rgb), 0.38);
+}
+
+.user-location-marker::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(var(--pi-primary-bright-rgb), 0.28);
+    content: "";
+    transform: translate(-50%, -50%);
+    animation: user-location-pulse 1.8s ease-out infinite;
+}
+
+@keyframes user-location-pulse {
+    0% {
+        opacity: 0.8;
+        transform: translate(-50%, -50%) scale(0.45);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(1.35);
+    }
+}
+
+@media (min-width: 500px) {
+    .floorButton {
+        border: 3px solid var(--pi-primary);
+        height: 45px;
+        width: 46px;
+        font-size: 18px;
+        margin: 2px 4px;
+        margin-right: 10px;
+    }
+}
+
+.copy-button{
+    border: 2px solid var(--pi-primary);
+    border-radius: 10%;
+    height: 20px;
+    width: 70px;
+    color: rgb(100, 100, 100);
+    text-align: center;
+    text-decoration: none;
+    display: block;
+    font-size: 10px;
+    padding: 0px 0px;
+    margin: 0px 2px;
+}
