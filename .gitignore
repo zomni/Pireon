@@ -47,6 +47,10 @@ backend/Pireon.API/backups/**
 # Configuracion local del collector
 tools/*/appsettings.local.json
 
+# Modelos ML entrenados y estado runtime
+backend/Pireon.API/ml-models/
+backend/Pireon.API/Data/ml-state.json
+
 # Contenido de datos de frontend (opcional, nunca versionar)
 frontend/src/data/*.json
 frontend/src/data/interiors/
