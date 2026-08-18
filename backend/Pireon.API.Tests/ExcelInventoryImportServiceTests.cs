@@ -1,6 +1,9 @@
 using ClosedXML.Excel;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Hosting;
 using Pireon.API.Data;
+using Pireon.API.ML;
 using Pireon.API.Models;
 using Pireon.API.Services;
 
@@ -11,6 +14,8 @@ public class ExcelInventoryImportServiceTests : IDisposable
     private readonly SqliteConnection _connection;
     private readonly AppDbContext _context;
     private readonly string _tempDirectory;
+    private readonly ItemClassificationService _classificationService;
+    private readonly MlSettingsService _mlSettings;
 
     public ExcelInventoryImportServiceTests()
     {
@@ -18,6 +23,13 @@ public class ExcelInventoryImportServiceTests : IDisposable
         _context = TestDbContextFactory.CreateContext(_connection);
         _tempDirectory = Path.Combine(Path.GetTempPath(), $"pireon-import-tests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(_tempDirectory);
+        _classificationService = new ItemClassificationService(
+            TestConfiguration.FromSettings(new Dictionary<string, string?>()),
+            new LoggerFactory().CreateLogger<ItemClassificationService>());
+        _mlSettings = new MlSettingsService(
+            TestConfiguration.FromSettings(new Dictionary<string, string?>()),
+            new FakeWebHostEnvironment(_tempDirectory),
+            new LoggerFactory().CreateLogger<MlSettingsService>());
     }
 
     public void Dispose()
@@ -58,7 +70,7 @@ public class ExcelInventoryImportServiceTests : IDisposable
             ["InventoryCategories:Statuses:0:Name"] = "active",
             ["InventoryCategories:Statuses:0:Tokens:0"] = "FUNCIONA"
         });
-        var service = new ExcelInventoryImportService(_context, config);
+        var service = new ExcelInventoryImportService(_context, config, _classificationService, _mlSettings);
 
         var result = await service.ImportAsync("inventario.xlsx");
 
@@ -81,7 +93,7 @@ public class ExcelInventoryImportServiceTests : IDisposable
         {
             ["ExcelImportRoot"] = _tempDirectory
         });
-        var service = new ExcelInventoryImportService(_context, config);
+        var service = new ExcelInventoryImportService(_context, config, _classificationService, _mlSettings);
 
         await Assert.ThrowsAsync<FileNotFoundException>(
             () => service.ImportAsync("missing.xlsx"));
@@ -94,7 +106,7 @@ public class ExcelInventoryImportServiceTests : IDisposable
         {
             ["ExcelImportRoot"] = _tempDirectory
         });
-        var service = new ExcelInventoryImportService(_context, config);
+        var service = new ExcelInventoryImportService(_context, config, _classificationService, _mlSettings);
 
         var status = await service.GetStatusAsync();
 
@@ -120,4 +132,22 @@ public class ExcelInventoryImportServiceTests : IDisposable
         sheet.Cell(2, 6).Value = "funciona";
         workbook.SaveAs(filePath);
     }
+}
+
+internal class FakeWebHostEnvironment : IWebHostEnvironment
+{
+    public FakeWebHostEnvironment(string contentRootPath)
+    {
+        ContentRootPath = contentRootPath;
+        EnvironmentName = "Development";
+        ApplicationName = "Test";
+        WebRootPath = contentRootPath;
+    }
+
+    public string EnvironmentName { get; set; }
+    public string ApplicationName { get; set; }
+    public string ContentRootPath { get; set; }
+    public Microsoft.Extensions.FileProviders.IFileProvider ContentRootFileProvider { get; set; } = null!;
+    public string WebRootPath { get; set; }
+    public Microsoft.Extensions.FileProviders.IFileProvider WebRootFileProvider { get; set; } = null!;
 }

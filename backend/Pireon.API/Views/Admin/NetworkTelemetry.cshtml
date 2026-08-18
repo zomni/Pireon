@@ -378,8 +378,9 @@
 </style>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="fw-bold mb-0">Red y riesgo</h2>
-    <span class="text-muted">Inventario tecnico observado por red</span>
+    <div class="page-header px-4 py-3 rounded-3" style="background: linear-gradient(135deg, var(--pi-primary-soft), rgba(45,212,191,0.06)); border-left: 4px solid var(--pi-primary); box-shadow: 0 2px 10px rgba(15,118,110,0.08);">
+        <h2 class="fw-bold mb-0 fs-4" style="color: var(--pi-deep);">Red y riesgo</h2>
+    </div>
 </div>
 
 @if (Model.ActiveSnapshotId != Guid.Empty)
@@ -1583,7 +1584,7 @@
             } else {
                 const currentSortBy = data?.sortBy || sortBySelect?.value || "risk";
                 const currentDirection = data?.sortDirection || sortDirectionSelect?.value || "desc";
-                const rows = items.map((item) => `
+                const rows = items.map((item, index) => `
                     <tr class="${item.id === activeSnapshotId ? "telemetry-row-active" : ""}">
                         <td class="fw-semibold">${item.serialNumber || ""}</td>
                         <td>
@@ -1601,7 +1602,10 @@
                         <td>${item.patchStatus || ""}</td>
                         <td>${item.isOnline === true ? '<span class="badge bg-success-subtle text-success-emphasis">Online</span>' : item.isOnline === false ? '<span class="badge bg-secondary-subtle text-secondary-emphasis">Offline</span>' : '<span class="badge bg-light text-muted">Sin dato</span>'}</td>
                         <td>${item.pingMs ?? ""}${item.pingMs != null ? " ms" : ""}</td>
-                        <td><span class="telemetry-pill telemetry-pill-${item.riskLevel || "unknown"}">${item.riskLevel || ""} (${item.riskScore ?? 0})</span></td>
+                        <td><span class="telemetry-pill telemetry-pill-${item.riskLevel || "unknown"}">${item.riskLevel || ""} (${item.riskScore ?? 0})</span>
+                            <button class="btn btn-sm btn-outline-secondary ms-1 py-0 px-1" title="Ver detalle de riesgo" data-device-index="${index}"><i class="bi bi-info-circle"></i></button>
+                        </td>
+                        <td>${item.scoringSource === "ml-hybrid" ? `<span class="badge bg-success-subtle text-success-emphasis" title="ML Probability: ${(item.mlProbability * 100).toFixed(0)}%">ML ${(item.mlProbability * 100).toFixed(0)}%</span>` : `<span class="badge bg-light text-muted">Reglas</span>`}</td>
                     </tr>
                 `).join("");
 
@@ -1624,6 +1628,7 @@
                                     <th>${buildSortableHeader("Red", "online", currentSortBy, currentDirection, "device")}</th>
                                     <th>${buildSortableHeader("Ping", "ping", currentSortBy, currentDirection, "device")}</th>
                                     <th>${buildSortableHeader("Riesgo", "risk", currentSortBy, currentDirection, "device")}</th>
+                                    <th>Fuente</th>
                                 </tr>
                             </thead>
                             <tbody>${rows}</tbody>
@@ -1639,6 +1644,13 @@
                         if (sortDirectionSelect) sortDirectionSelect.value = nextDirection;
                         loadDevices(1);
                     });
+                });
+
+                deviceTable.addEventListener("click", (e) => {
+                    const btn = e.target.closest("[data-device-index]");
+                    if (!btn) return;
+                    const idx = parseInt(btn.getAttribute("data-device-index"), 10);
+                    if (Number.isFinite(idx) && items[idx]) showRiskDetail(items[idx]);
                 });
             }
 
@@ -2825,3 +2837,73 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="riskDetailModal" tabindex="-1" aria-labelledby="riskDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="riskDetailModalLabel">Detalle de riesgo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body" id="riskDetailBody"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function showRiskDetail(item) {
+        var body = document.getElementById("riskDetailBody");
+        if (!body || !item) return;
+
+        var level = (item.riskLevel || "unknown").toLowerCase();
+        var pillColor = { critical: "bg-danger", high: "bg-warning text-dark", medium: "bg-info", low: "bg-success", unknown: "bg-secondary" }[level] || "bg-secondary";
+
+        var reasons = Array.isArray(item.riskReasons) ? item.riskReasons : [];
+        var reasonsHtml = reasons.length > 0
+            ? '<ul class="mb-0">' + reasons.map(function(r) {
+                var isMl = r.indexOf("[ML]") === 0;
+                var icon = isMl ? "bi-robot" : "bi-exclamation-triangle text-warning";
+                return '<li class="mb-1"><i class="bi ' + icon + ' me-1"></i>' + r + '</li>';
+            }).join("") + '</ul>'
+            : '<span class="text-muted">Sin factores de riesgo registrados</span>';
+
+        var scoreBreakdown = "";
+        if (item.scoringSource === "ml-hybrid" && item.ruleBasedScore != null) {
+            var mlProb = item.mlProbability != null ? (item.mlProbability * 100).toFixed(0) + "%" : "N/A";
+            scoreBreakdown = '<div class="alert alert-info py-2 mb-3">'
+                + '<strong>Desglose de score:</strong> '
+                + 'Reglas: <strong>' + item.ruleBasedScore + '</strong> &rarr; '
+                + 'ML: <strong>' + mlProb + '</strong> &rarr; '
+                + 'Hibrido: <strong>' + (item.riskScore ?? 0) + '</strong>'
+                + '</div>';
+        }
+
+        var matchInfo = "";
+        if (item.matchKey) {
+            matchInfo = '<div class="mt-2"><small class="text-muted"><i class="bi bi-link-45deg me-1"></i>Coincidencia: <strong>' + item.matchKey + '</strong></small></div>';
+        } else if (!item.matchKey && item.scoringSource !== "ml-hybrid") {
+            matchInfo = '<div class="mt-2"><small class="text-muted"><i class="bi bi-link-45deg me-1"></i>Sin coincidencia en inventario</small></div>';
+        }
+
+        body.innerHTML = ''
+            + '<div class="d-flex align-items-center gap-3 mb-3">'
+            + '  <span class="badge ' + pillColor + ' fs-5 text-uppercase">' + (item.riskLevel || "unknown") + ' (' + (item.riskScore ?? 0) + '/100)</span>'
+            + '</div>'
+            + '<div class="row mb-3 text-muted small">'
+            + '  <div class="col-md-6"><strong>Equipo:</strong> ' + (item.deviceName || item.hostName || "Sin nombre") + '</div>'
+            + '  <div class="col-md-3"><strong>IP:</strong> ' + (item.ipAddress || "-") + '</div>'
+            + '  <div class="col-md-3"><strong>MAC:</strong> ' + (item.macAddress || "-") + '</div>'
+            + '</div>'
+            + scoreBreakdown
+            + '<h6 class="mb-2"><i class="bi bi-list-check me-1"></i>Factores de riesgo</h6>'
+            + reasonsHtml
+            + matchInfo;
+
+        var modalEl = document.getElementById("riskDetailModal");
+        var modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+        modal.show();
+    }
+</script>

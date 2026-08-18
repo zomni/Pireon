@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Microsoft.EntityFrameworkCore;
 using Pireon.API.Data;
+using Pireon.API.ML;
 using Pireon.API.Models;
 
 namespace Pireon.API.Services;
@@ -13,15 +14,23 @@ public class ExcelInventoryImportService
 {
     private readonly AppDbContext _context;
     private readonly IConfiguration _configuration;
+    private readonly ItemClassificationService _classificationService;
+    private readonly MlSettingsService _mlSettings;
 
     private static readonly XNamespace SpreadsheetNs = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
     private static readonly XNamespace OfficeRelNs = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
     private static readonly XNamespace PackageRelNs = "http://schemas.openxmlformats.org/package/2006/relationships";
 
-    public ExcelInventoryImportService(AppDbContext context, IConfiguration configuration)
+    public ExcelInventoryImportService(
+        AppDbContext context,
+        IConfiguration configuration,
+        ItemClassificationService classificationService,
+        MlSettingsService mlSettings)
     {
         _context = context;
         _configuration = configuration;
+        _classificationService = classificationService;
+        _mlSettings = mlSettings;
     }
 
     public async Task<ExcelImportStatus> GetStatusAsync(CancellationToken cancellationToken = default)
@@ -81,11 +90,18 @@ public class ExcelInventoryImportService
 
         var insertedItems = new List<ImportedInventoryItem>();
         var mergedItemsCount = 0;
+        var mlClassifiedCount = 0;
+        var ruleClassifiedCount = 0;
 
         foreach (var row in rows)
         {
             var physicalLocation = row.Get("UBICACION FISICA");
             var matchedBuilding = ResolveBuildingByPhysicalLocation(physicalLocation, buildings);
+            var categoryResult = InferCategoryWithMl(row.Get("ITE_DESCRIPCION"), row.Get("OBSERVACION"));
+
+            if (categoryResult.UsedMl) mlClassifiedCount++;
+            else ruleClassifiedCount++;
+
             var candidate = new ImportedInventoryItem
             {
                 RowNumber = row.RowNumber,
@@ -109,7 +125,10 @@ public class ExcelInventoryImportService
                 Observation = row.Get("OBSERVACION"),
                 Rut = row.Get("RUT"),
                 InventoryDate = row.Get("FECHA INVENTARIO"),
-                InferredCategory = InferCategory(row.Get("ITE_DESCRIPCION")),
+                InferredCategory = categoryResult.Category,
+                CategorySource = categoryResult.UsedMl ? "ml" : "rule",
+                ClassificationConfidence = categoryResult.Confidence,
+                ClassificationDetail = categoryResult.Detail,
                 InferredStatus = InferStatus(row.Get("OBSERVACION")),
                 MatchedBuildingExternalId = matchedBuilding?.ExternalId ?? string.Empty,
                 MatchConfidence = matchedBuilding is null ? string.Empty : "import-physical-location",
@@ -151,6 +170,8 @@ public class ExcelInventoryImportService
             ImportedItemsCount = insertedItems.Count,
             MergedItemsCount = mergedItemsCount,
             ImportedAtUtc = importedAt,
+            MlClassifiedCount = mlClassifiedCount,
+            RuleClassifiedCount = ruleClassifiedCount,
             CategorySummary = insertedItems
                 .GroupBy(i => i.InferredCategory)
                 .ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase)
@@ -365,6 +386,60 @@ public class ExcelInventoryImportService
     private string InferStatus(string observation)
         => InventoryCategoriesConfig.InferStatus(_configuration, observation);
 
+    private (string Category, bool UsedMl, float? Confidence, string Detail) InferCategoryWithMl(string description, string observation)
+    {
+        if (!_mlSettings.IsEnabled || !_classificationService.IsModelLoaded)
+        {
+            var (cat, token) = InventoryCategoriesConfig.InferCategoryWithDetail(_configuration, description);
+            var ruleDetail = string.IsNullOrWhiteSpace(token)
+                ? $"Sin coincidencia de tokens \u2192 categor\u00eda por defecto: \u2018{cat}\u2019"
+                : $"Regla: token \u2018{token}\u2019 \u2192 categor\u00eda \u2018{cat}\u2019";
+            return (cat, false, null, ruleDetail);
+        }
+
+        var mlResult = _classificationService.PredictCategory(description, observation);
+        var maxScore = mlResult.Score.Length > 0 ? mlResult.Score.Max() : 0f;
+        var confidenceThreshold = _configuration.GetValue<float?>("MlSettings:ClassificationConfidenceThreshold") ?? 0.6f;
+
+        if (maxScore >= confidenceThreshold)
+        {
+            var mlDetail = BuildMlClassificationDetail(mlResult.PredictedCategory, mlResult.Score, maxScore);
+            return (mlResult.PredictedCategory, true, maxScore, mlDetail);
+        }
+
+        var (fallbackCat, fallbackToken) = InventoryCategoriesConfig.InferCategoryWithDetail(_configuration, description);
+        var fallbackDetail = string.IsNullOrWhiteSpace(fallbackToken)
+            ? $"ML confianza b\u00e9aja ({maxScore:P0}) \u2192 regla: sin coincidencia \u2192 categor\u00eda por defecto: \u2018{fallbackCat}\u2019"
+            : $"ML confianza b\u00e9aja ({maxScore:P0}) \u2192 regla: token \u2018{fallbackToken}\u2019 \u2192 categor\u00eda \u2018{fallbackCat}\u2019";
+        return (fallbackCat, false, null, fallbackDetail);
+    }
+
+    private static string BuildMlClassificationDetail(string predictedCategory, float[] scores, float maxScore)
+    {
+        var categoryLabels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["pc"] = "PC", ["printer"] = "Impresora", ["scanner"] = "Escaner", ["other"] = "Otros"
+        };
+
+        var parts = new List<string>();
+        if (scores.Length > 0)
+        {
+            var indexed = scores.Select((s, i) => (Score: s, Index: i)).OrderByDescending(x => x.Score).Take(4);
+            foreach (var (score, idx) in indexed)
+        {
+                var label = idx < categoryLabels.Count ? categoryLabels.Values.ElementAt(idx) : $"cat{idx}";
+                parts.Add($"{label} ({score:P0})");
+            }
+        }
+
+        var detail = $"ML predijo \u2018{categoryLabels.GetValueOrDefault(predictedCategory, predictedCategory)}\u2019 ({maxScore:P0})";
+        if (parts.Count > 0)
+        {
+            detail += $" \u2014 desglose: {string.Join(", ", parts)}";
+        }
+        return detail;
+    }
+
     private static string FirstNonEmpty(params string[] values)
     {
         return values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v)) ?? string.Empty;
@@ -493,6 +568,8 @@ public class ExcelInventoryImportService
         public string ExcelPath { get; set; } = string.Empty;
         public int ImportedItemsCount { get; set; }
         public int MergedItemsCount { get; set; }
+        public int MlClassifiedCount { get; set; }
+        public int RuleClassifiedCount { get; set; }
         public DateTime ImportedAtUtc { get; set; }
         public Dictionary<string, int> CategorySummary { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     }
@@ -546,6 +623,9 @@ public class ExcelInventoryImportService
         existingItem.InventoryDate = Prefer(existingItem.InventoryDate, candidate.InventoryDate);
         existingItem.InferredCategory = Prefer(existingItem.InferredCategory, candidate.InferredCategory);
         existingItem.InferredStatus = Prefer(existingItem.InferredStatus, candidate.InferredStatus);
+        existingItem.CategorySource = Prefer(existingItem.CategorySource, candidate.CategorySource);
+        existingItem.ClassificationConfidence = candidate.ClassificationConfidence ?? existingItem.ClassificationConfidence;
+        existingItem.ClassificationDetail = Prefer(existingItem.ClassificationDetail, candidate.ClassificationDetail);
         existingItem.MatchConfidence = Prefer(existingItem.MatchConfidence, candidate.MatchConfidence);
         existingItem.MatchNotes = Prefer(existingItem.MatchNotes, candidate.MatchNotes);
 

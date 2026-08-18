@@ -120,7 +120,7 @@ public class AdminController : Controller
                 .AsNoTracking()
                 .OrderByDescending(i => i.ImportedAtUtc)
                 .ThenByDescending(i => i.Id)
-                .Take(8)
+                .Take(3)
                 .Select(i => new DashboardInventoryPreviewViewModel
                 {
                     Id = i.Id,
@@ -134,7 +134,7 @@ public class AdminController : Controller
             RecentActivity = await _context.AuditLogEntries
                 .AsNoTracking()
                 .OrderByDescending(x => x.CreatedAtUtc)
-                .Take(8)
+                .Take(3)
                 .Select(x => new ActivityLogListItemViewModel
                 {
                     Id = x.Id,

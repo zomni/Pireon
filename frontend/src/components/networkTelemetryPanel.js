@@ -65,6 +65,7 @@ const renderSummary = (panel, telemetry) => {
       <div><span>Riesgo</span><strong>${getRiskLabel(telemetry?.latestRiskScore, telemetry?.latestRiskLevel)}</strong></div>
       <div><span>Equipos</span><strong>${Number(telemetry?.latestDeviceCount) || 0}</strong></div>
       <div><span>Usuarios</span><strong>${Number(telemetry?.latestConnectedUserCount) || 0}</strong></div>
+      ${telemetry?.mlScoredDeviceCount ? `<div><span>ML</span><strong>${telemetry.mlScoredDeviceCount} equipos</strong></div>` : ""}
     </div>
     ${telemetry?.notes ? `<div class="network-telemetry-summary-notes">${telemetry.notes}</div>` : ""}
   `;
@@ -90,7 +91,7 @@ const renderSummary = (panel, telemetry) => {
                 <strong>${observation?.deviceName || observation?.externalKey || "Elemento"}</strong>
                 <span class="network-telemetry-risk ${riskClass}">${getRiskLabel(observation?.riskScore, observation?.riskLevel)}</span>
               </div>
-              <div class="network-telemetry-item-meta">${observation?.observationType || "device"} · ${observation?.username || "sin usuario"} · ${observation?.ipAddress || "sin IP"}</div>
+              <div class="network-telemetry-item-meta">${observation?.observationType || "device"} · ${observation?.username || "sin usuario"} · ${observation?.ipAddress || "sin IP"}${observation?.scoringSource === "ml-hybrid" ? ` · <span style="color:#16a34a;font-weight:600">ML ${((observation?.mlProbability || 0) * 100).toFixed(0)}%</span>` : ""}</div>
               ${reasons ? `<div class="network-telemetry-item-reasons">${reasons}</div>` : ""}
             </div>
           </div>

@@ -123,6 +123,17 @@
                         <input class="form-control" value="@item.InferredStatus" readonly />
                     </div>
                 </div>
+                <div class="row g-3 mt-1">
+                    <div class="col-md-3">
+                        <label class="form-label text-muted">Fuente clasificacion</label>
+                        @{ var sourceLabel = item.CategorySource == "ml"
+                            ? (item.ClassificationConfidence.HasValue
+                                ? $"ML ({(item.ClassificationConfidence.Value * 100).ToString("F0")}%)"
+                                : "ML")
+                            : "Reglas"; }
+                        <input class="form-control" value="@sourceLabel" readonly />
+                    </div>
+                </div>
             </div>
         </div>
     </div>

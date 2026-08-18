@@ -89,6 +89,7 @@ public class NetworkTelemetryIngestResultViewModel
     public int LowRiskUserCount { get; set; }
     public int OverallRiskScore { get; set; }
     public string OverallRiskLevel { get; set; } = string.Empty;
+    public int MlScoredDeviceCount { get; set; }
     public string Notes { get; set; } = string.Empty;
 }
 
@@ -131,6 +132,9 @@ public class NetworkTelemetryObservationViewModel
     public string RiskLevel { get; set; } = string.Empty;
     public int RiskScore { get; set; }
     public IReadOnlyList<string> RiskReasons { get; set; } = [];
+    public string ScoringSource { get; set; } = "rule-only";
+    public float? MlProbability { get; set; }
+    public int? RuleBasedScore { get; set; }
     public DateTime ObservedAtUtc { get; set; }
     public Guid? ImportedInventoryItemId { get; set; }
     public string MatchKey { get; set; } = string.Empty;

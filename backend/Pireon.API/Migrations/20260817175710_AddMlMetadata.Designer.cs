@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Pireon.API.Data;
 
@@ -10,9 +11,11 @@ using Pireon.API.Data;
 namespace Pireon.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260817175710_AddMlMetadata")]
+    partial class AddMlMetadata
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.0");
@@ -566,11 +569,6 @@ namespace Pireon.API.Migrations
                     b.Property<float?>("ClassificationConfidence")
                         .HasColumnType("REAL");
 
-                    b.Property<string>("ClassificationDetail")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("TEXT");
-
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("TEXT");
 
@@ -986,63 +984,6 @@ namespace Pireon.API.Migrations
                         .IsUnique();
 
                     b.ToTable("ManualBuildings");
-                });
-
-            modelBuilder.Entity("Pireon.API.Models.MlTrainingRun", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
-
-                    b.Property<float>("Accuracy")
-                        .HasColumnType("REAL");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("CreatedBy")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("DeletedAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("DeletedBy")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("TEXT");
-
-                    b.Property<float>("F1Score")
-                        .HasColumnType("REAL");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("ModelType")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("Samples")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("UpdatedAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("UpdatedBy")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("Version")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ModelType", "CreatedAtUtc");
-
-                    b.ToTable("MlTrainingRuns");
                 });
 
             modelBuilder.Entity("Pireon.API.Models.NetworkTelemetryObservation", b =>

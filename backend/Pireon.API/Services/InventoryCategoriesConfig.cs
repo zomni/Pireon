@@ -40,6 +40,29 @@ public static class InventoryCategoriesConfig
         return GetFallbackCategory(configuration);
     }
 
+    public static (string Category, string MatchedToken) InferCategoryWithDetail(IConfiguration configuration, string description)
+    {
+        var text = NormalizeText(description);
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return (GetFallbackCategory(configuration), string.Empty);
+        }
+
+        var categories = LoadDefinitions(configuration, "InventoryCategories:Categories", "Name", "Tokens");
+        foreach (var category in categories)
+        {
+            foreach (var token in category.Tokens)
+            {
+                if (text.Contains(token, StringComparison.Ordinal))
+                {
+                    return (category.Name, token);
+                }
+            }
+        }
+
+        return (GetFallbackCategory(configuration), string.Empty);
+    }
+
     public static string InferStatus(IConfiguration configuration, string observation)
     {
         var text = NormalizeText(observation);

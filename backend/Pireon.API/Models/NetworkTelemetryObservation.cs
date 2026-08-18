@@ -44,6 +44,9 @@ public class NetworkTelemetryObservation : AuditableEntity
     public string RiskLevel { get; set; } = "low";
     public int RiskScore { get; set; }
     public string RiskReasonsJson { get; set; } = "[]";
+    public string ScoringSource { get; set; } = "rule-only";
+    public float? MlProbability { get; set; }
+    public int? RuleBasedScore { get; set; }
     public string RawJson { get; set; } = "{}";
     public DateTime ObservedAtUtc { get; set; } = DateTime.UtcNow;
 }

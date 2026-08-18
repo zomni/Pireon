@@ -1,5 +1,6 @@
 import { getPrimaryCampusKey, getCatalogFileName } from "../utils/campusConfig.js";
 import { getActiveCampus } from "../utils/goToCampus.js";
+import { identifiers } from "../utils/identifiers.js";
 import { map } from "../views/map.js";
 import { mergeCatalogWithSearch } from "@app/searchMetadata";
 import { clearRouteHighlight, closeCurrentPopup, setRouteHighlight } from "@app/featureDisplay";
@@ -141,7 +142,8 @@ const loadBuildingsCatalog = async () => {
   }
 
   try {
-    const response = await fetch(`${getCatalogFileName()}?v=${Date.now()}`, {
+    const campusKey = getActiveCampus() || getPrimaryCampusKey();
+    const response = await fetch(`${getCatalogFileName(campusKey)}?v=${Date.now()}`, {
       cache: "no-store",
     });
 
@@ -996,6 +998,13 @@ const initializeRoutePlanner = async () => {
 
     setStatus("Selecciona origen y destino.", "neutral");
   };
+
+  window.addEventListener(identifiers.events.campusChanged, () => {
+    buildingsCache = null;
+    resetWalkingRoutesCache();
+    void populateBuildingSelectors(false);
+    setStatus("Selecciona origen y destino.", "neutral");
+  });
 };
 
 if (document.readyState === "loading") {

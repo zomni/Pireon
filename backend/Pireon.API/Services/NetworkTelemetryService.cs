@@ -5,6 +5,8 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Pireon.API.Data;
+using Pireon.API.ML;
+using Pireon.API.ML.Models;
 using Pireon.API.Models;
 using Pireon.API.ViewModels;
 
@@ -15,6 +17,8 @@ public class NetworkTelemetryService
     private readonly AppDbContext _context;
     private readonly IConfiguration _configuration;
     private readonly AuditLogService _auditLogService;
+    private readonly RiskPredictionService _riskPredictionService;
+    private readonly MlSettingsService _mlSettings;
     private readonly ILogger<NetworkTelemetryService> _logger;
     private readonly TimeZoneInfo _displayTimeZone;
     private readonly CultureInfo _displayCulture;
@@ -23,11 +27,15 @@ public class NetworkTelemetryService
         AppDbContext context,
         IConfiguration configuration,
         AuditLogService auditLogService,
+        RiskPredictionService riskPredictionService,
+        MlSettingsService mlSettings,
         ILogger<NetworkTelemetryService> logger)
     {
         _context = context;
         _configuration = configuration;
         _auditLogService = auditLogService;
+        _riskPredictionService = riskPredictionService;
+        _mlSettings = mlSettings;
         _logger = logger;
         _displayTimeZone = TelemetryTimeSettings.ResolveTimeZone(configuration);
         _displayCulture = TelemetryTimeSettings.ResolveCulture(configuration);
@@ -560,9 +568,10 @@ public class NetworkTelemetryService
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         var deviceObservations = new List<ObservationResult>();
+        var mlScoredCount = 0;
         foreach (var device in normalizedDevices)
         {
-            deviceObservations.Add(ScoreDevice(
+            var ruleResult = ScoreDevice(
                 device,
                 observedAtUtc,
                 importedItems,
@@ -570,7 +579,32 @@ public class NetworkTelemetryService
                 authUsers,
                 duplicateIpSet,
                 duplicateMacSet,
-                liveScanMode));
+                liveScanMode);
+
+            if (_riskPredictionService.IsModelLoaded && _mlSettings.IsEnabled)
+            {
+                var mlInput = ExtractRiskFeatures(device, importedItems, syncedEquipments, authUsers, duplicateIpSet, duplicateMacSet, liveScanMode);
+                var mlPrediction = _riskPredictionService.Predict(mlInput);
+                var hybridScore = _riskPredictionService.ComputeHybridScore(ruleResult.RiskScore, mlPrediction);
+
+                var hybridLevel = ToRiskLevel(hybridScore);
+                var reasons = new List<string>(ruleResult.RiskReasons) { $"[ML] Prob={mlPrediction.Probability:P0}" };
+                mlScoredCount++;
+
+                deviceObservations.Add(ruleResult with
+                {
+                    RiskScore = hybridScore,
+                    RiskLevel = hybridLevel,
+                    RiskReasons = reasons,
+                    ScoringSource = "ml-hybrid",
+                    MlProbability = mlPrediction.Probability,
+                    RuleBasedScore = ruleResult.RiskScore
+                });
+            }
+            else
+            {
+                deviceObservations.Add(ruleResult);
+            }
         }
 
         var userObservations = new List<ObservationResult>();
@@ -603,6 +637,7 @@ public class NetworkTelemetryService
             HighRiskDeviceCount = deviceObservations.Count(observation => observation.RiskLevel == "high" || observation.RiskLevel == "critical"),
             MediumRiskDeviceCount = deviceObservations.Count(observation => observation.RiskLevel == "medium"),
             LowRiskDeviceCount = deviceObservations.Count(observation => observation.RiskLevel == "low"),
+            MlScoredDeviceCount = mlScoredCount,
             ObservedAtUtc = observedAtUtc,
             WindowStartUtc = request.WindowStartUtc,
             WindowEndUtc = request.WindowEndUtc,
@@ -658,6 +693,9 @@ public class NetworkTelemetryService
             RiskLevel = observation.RiskLevel,
             RiskScore = observation.RiskScore,
             RiskReasonsJson = JsonSerializer.Serialize(observation.RiskReasons),
+            ScoringSource = observation.ScoringSource,
+            MlProbability = observation.MlProbability,
+            RuleBasedScore = observation.RuleBasedScore,
             RawJson = observation.RawJson,
             ObservedAtUtc = observedAtUtc,
             CreatedAtUtc = DateTime.UtcNow
@@ -751,6 +789,7 @@ public class NetworkTelemetryService
             LowRiskUserCount = userEntities.Count(observation => observation.RiskLevel == "low"),
             OverallRiskScore = snapshot.RiskScore,
             OverallRiskLevel = snapshot.RiskLevel,
+            MlScoredDeviceCount = mlScoredCount,
             Notes = snapshot.Notes
         };
     }
@@ -1721,6 +1760,60 @@ public class NetworkTelemetryService
             ObservedAtUtc: observedAtUtc);
     }
 
+    private static RiskPredictionInput ExtractRiskFeatures(
+        DeviceCandidate device,
+        IReadOnlyList<InventoryMatchRecord> importedItems,
+        IReadOnlyList<SyncedEquipmentMatchRecord> syncedEquipments,
+        IReadOnlyList<AuthUserMatchRecord> authUsers,
+        ISet<string> duplicateIpSet,
+        ISet<string> duplicateMacSet,
+        bool liveScanMode)
+    {
+        var importedMatch = FindImportedMatch(device, importedItems);
+        var syncedMatch = FindSyncedEquipmentMatch(device, syncedEquipments);
+        var authMatch = FindAuthUserMatch(device.Username, authUsers);
+
+        var hasMatch = importedMatch is not null || syncedMatch is not null;
+        var hasBuilding = (importedMatch?.Match is not null && !string.IsNullOrWhiteSpace(importedMatch.Match.AssignedBuildingExternalId))
+            || (syncedMatch?.Match is not null && !string.IsNullOrWhiteSpace(syncedMatch.Match.BuildingExternalId));
+
+        var openPorts = ParseOpenPorts(device.OpenPorts);
+        var diskFreePercent = device.DiskTotalGb.HasValue && device.DiskTotalGb.Value > 0 && device.DiskFreeGb.HasValue
+            ? (float)(device.DiskFreeGb.Value / device.DiskTotalGb.Value * 100)
+            : 100f;
+        var uptimeDays = device.LastBootAtUtc.HasValue
+            ? (float)(DateTime.UtcNow - device.LastBootAtUtc.Value).TotalDays
+            : 0f;
+
+        return new RiskPredictionInput
+        {
+            IsOnline = device.IsOnline == true ? 1f : 0f,
+            MatchScore = hasBuilding ? 1f : hasMatch ? 0.5f : 0f,
+            HasAssignedBuilding = hasBuilding ? 1f : 0f,
+            DuplicateIpCount = !string.IsNullOrWhiteSpace(device.IpAddress) && duplicateIpSet.Contains(Normalize(device.IpAddress)) ? 1f : 0f,
+            DuplicateMacCount = IsValidMac(device.MacAddress) && duplicateMacSet.Contains(Normalize(device.MacAddress)) ? 1f : 0f,
+            IsKnownUser = authMatch is not null ? 1f : 0f,
+            DeviceCount = 0f,
+            AntivirusEnabled = !liveScanMode && !string.IsNullOrWhiteSpace(device.AntivirusStatus)
+                && !(Normalize(device.AntivirusStatus).Contains("DISABLED") || Normalize(device.AntivirusStatus).Contains("INACTIVE")
+                    || Normalize(device.AntivirusStatus).Contains("OFF") || Normalize(device.AntivirusStatus).Contains("NO_INSTALADO")
+                    || Normalize(device.AntivirusStatus).Contains("NOT_INSTALLED"))
+                ? 1f : 0f,
+            PendingPatches = !liveScanMode && !string.IsNullOrWhiteSpace(device.PatchStatus)
+                && (Normalize(device.PatchStatus).Contains("OUTDATED") || Normalize(device.PatchStatus).Contains("PENDING")
+                    || Normalize(device.PatchStatus).Contains("FAILED"))
+                ? 1f : 0f,
+            DomainJoined = device.DomainJoined == true ? 1f : 0f,
+            DiskFreePercent = diskFreePercent,
+            UptimeDays = uptimeDays,
+            PingMs = device.PingMs ?? 0,
+            RdpExposed = liveScanMode && openPorts.Contains(3389) ? 1f : 0f,
+            SmbExposed = liveScanMode && (openPorts.Contains(445) || openPorts.Contains(139) || openPorts.Contains(135)) ? 1f : 0f,
+            SshExposed = liveScanMode && openPorts.Contains(22) ? 1f : 0f,
+            OpenPortCount = openPorts.Count,
+        };
+    }
+
     private static ISet<int> ParseOpenPorts(string? value)
     {
         var ports = new HashSet<int>();
@@ -2215,6 +2308,9 @@ public class NetworkTelemetryService
             RiskReasons = string.IsNullOrWhiteSpace(observation.RiskReasonsJson)
                 ? []
                 : JsonSerializer.Deserialize<List<string>>(observation.RiskReasonsJson) ?? [],
+            ScoringSource = observation.ScoringSource,
+            MlProbability = observation.MlProbability,
+            RuleBasedScore = observation.RuleBasedScore,
             ObservedAtUtc = observation.ObservedAtUtc,
             ImportedInventoryItemId = observation.ImportedInventoryItemId,
             MatchKey = observation.MatchKey
@@ -2453,7 +2549,10 @@ public class NetworkTelemetryService
         int RiskScore,
         IReadOnlyList<string> RiskReasons,
         string RawJson,
-        DateTime ObservedAtUtc);
+        DateTime ObservedAtUtc,
+        string ScoringSource = "rule-only",
+        float? MlProbability = null,
+        int? RuleBasedScore = null);
 
     private string GetSnapshotWeekday(DateTime observedAtUtc)
     {

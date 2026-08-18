@@ -13,6 +13,7 @@ public class NetworkTelemetrySnapshot : AuditableEntity
     public int HighRiskDeviceCount { get; set; }
     public int MediumRiskDeviceCount { get; set; }
     public int LowRiskDeviceCount { get; set; }
+    public int MlScoredDeviceCount { get; set; }
     public DateTime ObservedAtUtc { get; set; } = DateTime.UtcNow;
     public DateTime? WindowStartUtc { get; set; }
     public DateTime? WindowEndUtc { get; set; }

@@ -81,6 +81,10 @@ export const loadSites = () => {
         const session = await response.json();
         const remoteSites = Array.isArray(session?.sites) ? session.sites : [];
         if (remoteSites.length === 0) {
+          if (session?.isAuthenticated === false) {
+            sites = {};
+            sitesSource = "static";
+          }
           return;
         }
 
@@ -142,9 +146,9 @@ export const updateSiteViewport = (campusKey, viewport) => {
   return true;
 };
 
-export const resetSitesCache = () => {
+export const resetSitesCache = (keepStatic = true) => {
   sitesLoadedPromise = null;
-  sites = normalizeStaticSites();
+  sites = keepStatic ? normalizeStaticSites() : {};
   sitesSource = "static";
   organizationName = "";
   organizationColor = "";

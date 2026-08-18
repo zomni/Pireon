@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Pireon.API.Infrastructure;
 using Pireon.API.Data;
+using Pireon.API.ML;
 using Pireon.API.Models;
 using Pireon.API.Services;
 
@@ -147,6 +148,9 @@ builder.Services.AddScoped<NetworkTelemetryService>();
 builder.Services.AddScoped<NetworkTelemetryLiveScanService>();
 builder.Services.AddScoped<TelemetryScanScheduleService>();
 builder.Services.AddScoped<NetworkTelemetryAgentBridgeService>();
+builder.Services.AddSingleton<MlSettingsService>();
+builder.Services.AddSingleton<ItemClassificationService>();
+builder.Services.AddSingleton<RiskPredictionService>();
 builder.Services.AddHostedService<NetworkTelemetryLiveScanHostedService>();
 
 // CORS para que el frontend (pireon) pueda consumir la API

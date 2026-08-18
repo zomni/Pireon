@@ -25,6 +25,9 @@ public class ImportedInventoryItem : AuditableEntity
     public string InventoryDate { get; set; } = string.Empty;
     public string InferredCategory { get; set; } = string.Empty;
     public string InferredStatus { get; set; } = string.Empty;
+    public string CategorySource { get; set; } = "rule";
+    public float? ClassificationConfidence { get; set; }
+    public string ClassificationDetail { get; set; } = string.Empty;
     public Guid? MatchedSyncedBuildingId { get; set; }
     public Guid? MatchedSyncedRoomId { get; set; }
     public string MatchedBuildingExternalId { get; set; } = string.Empty;

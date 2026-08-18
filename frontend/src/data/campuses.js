@@ -18,16 +18,4 @@ export default {
       [-33.44, -70.64],
     ],
   },
-  sotero: {
-    school: "cs",
-    fullName: "Complejo Hospitalario Sótero del Río",
-    floors: ["-1", "0", "1", "2", "3", "4", "5"],
-    defaultFloor: "b1",
-    center: [-33.576, -70.581],
-    zoom: 18,
-    bounds: [
-      [-33.5801, -70.5832],
-      [-33.5720, -70.5763],
-    ],
-  },
 };

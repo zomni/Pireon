@@ -27,6 +27,7 @@ public class AppDbContext : DbContext
     public DbSet<NetworkTelemetryObservation> NetworkTelemetryObservations => Set<NetworkTelemetryObservation>();
     public DbSet<ScheduledScanRun> ScheduledScanRuns => Set<ScheduledScanRun>();
     public DbSet<TelemetryScanSchedule> TelemetryScanSchedules => Set<TelemetryScanSchedule>();
+    public DbSet<MlTrainingRun> MlTrainingRuns => Set<MlTrainingRun>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -221,6 +222,7 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Status).HasMaxLength(40);
             entity.Property(e => e.RiskLevel).HasMaxLength(40);
             entity.Property(e => e.RiskReasonsJson).HasMaxLength(2000);
+            entity.Property(e => e.ScoringSource).HasMaxLength(20);
             entity.Property(e => e.RawJson).HasMaxLength(8000);
             entity.Property(e => e.MatchKey).HasMaxLength(80);
 
@@ -258,6 +260,8 @@ public class AppDbContext : DbContext
             entity.Property(e => e.InventoryDate).HasMaxLength(50);
             entity.Property(e => e.InferredCategory).HasMaxLength(50);
             entity.Property(e => e.InferredStatus).HasMaxLength(50);
+            entity.Property(e => e.CategorySource).HasMaxLength(10);
+            entity.Property(e => e.ClassificationDetail).HasMaxLength(500);
             entity.Property(e => e.MatchedBuildingExternalId).HasMaxLength(100);
             entity.Property(e => e.MatchedRoomExternalId).HasMaxLength(120);
             entity.Property(e => e.MatchConfidence).HasMaxLength(50);
@@ -411,6 +415,14 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Organization>().HasQueryFilter(e => e.DeletedAtUtc == null);
         modelBuilder.Entity<CampusSite>().HasQueryFilter(e => e.DeletedAtUtc == null);
         modelBuilder.Entity<TelemetryScanSchedule>().HasQueryFilter(e => e.DeletedAtUtc == null);
+        modelBuilder.Entity<MlTrainingRun>().HasQueryFilter(e => e.DeletedAtUtc == null);
+
+        modelBuilder.Entity<MlTrainingRun>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.ModelType, e.CreatedAtUtc });
+            entity.Property(e => e.ModelType).IsRequired().HasMaxLength(40);
+        });
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
